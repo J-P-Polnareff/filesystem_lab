@@ -1,0 +1,36 @@
+# MYEXT2文件系统配置
+config MYEXT2_FS
+	tristate "MYEXT2 filesystem support (custom EXT2)"
+	depends on BLOCK
+	select BUFFER_HEAD
+	select CRC16
+	help
+	  MYEXT2 is a custom version of the Second Extended Filesystem with
+	  magic number 0x6666 instead of 0xEF53.
+	  
+	  This is for educational purposes to demonstrate how to create a
+	  custom filesystem based on EXT2.
+	  
+	  If unsure, say N.
+
+config MYEXT2_FS_POSIX_ACL
+	bool "MYEXT2 POSIX Access Control Lists"
+	depends on MYEXT2_FS
+	select FS_POSIX_ACL
+	help
+	  Posix Access Control Lists (ACLs) support permissions for users and
+	  groups beyond the owner/group/world scheme.
+	  
+	  If you don't know what Access Control Lists are, say N.
+
+config MYEXT2_FS_SECURITY
+	bool "MYEXT2 Security Labels"
+	depends on MYEXT2_FS
+	help
+	  Security labels support alternative access control models
+	  implemented by security modules like SELinux.  This option
+	  enables an extended attribute handler for file security
+	  labels in the myext2 filesystem.
+	  
+	  If you are not using a security module that requires using
+	  extended attributes for file security labels, say N.

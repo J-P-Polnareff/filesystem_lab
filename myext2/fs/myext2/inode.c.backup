@@ -1,0 +1,142 @@
+#include <linux/module.h>
+#include <linux/init.h>
+#include <linux/fs.h>
+#include <linux/buffer_head.h>
+#include <linux/slab.h>
+#include <linux/mpage.h>
+
+#include "myext2.h"
+
+static struct kmem_cache *myext2_inode_cachep;
+
+static struct inode *myext2_alloc_inode(struct super_block *sb)
+{
+	struct myext2_inode_info *ei;
+	
+	ei = kmem_cache_alloc(myext2_inode_cachep, GFP_KERNEL);
+	if (!ei)
+		return NULL;
+	
+	return &ei->vfs_inode;
+}
+
+static void myext2_destroy_inode(struct inode *inode)
+{
+	kmem_cache_free(myext2_inode_cachep, MYEXT2_I(inode));
+}
+
+static void init_once(void *foo)
+{
+	struct myext2_inode_info *ei = (struct myext2_inode_info *)foo;
+	
+	inode_init_once(&ei->vfs_inode);
+}
+
+static int __init init_inodecache(void)
+{
+	myext2_inode_cachep = kmem_cache_create("myext2_inode_cache",
+						sizeof(struct myext2_inode_info),
+						0, (SLAB_RECLAIM_ACCOUNT|
+						    SLAB_MEM_SPREAD|SLAB_ACCOUNT),
+						init_once);
+	if (!myext2_inode_cachep)
+		return -ENOMEM;
+	return 0;
+}
+
+static void destroy_inodecache(void)
+{
+	rcu_barrier();
+	kmem_cache_destroy(myext2_inode_cachep);
+}
+
+const struct super_operations myext2_sops = {
+	.alloc_inode	= myext2_alloc_inode,
+	.destroy_inode	= myext2_destroy_inode,
+	.write_inode	= myext2_write_inode,
+	.evict_inode	= myext2_evict_inode,
+	.put_super	= myext2_put_super,
+	.sync_fs	= myext2_sync_fs,
+	.statfs		= myext2_statfs,
+	.remount_fs	= myext2_remount_fs,
+};
+
+static int myext2_write_inode(struct inode *inode, struct writeback_control *wbc)
+{
+	return 0;
+}
+
+static void myext2_evict_inode(struct inode *inode)
+{
+	truncate_inode_pages_final(&inode->i_data);
+	clear_inode(inode);
+	
+	if (!inode->i_nlink) {
+		/* 删除inode */
+		inode->i_size = 0;
+		if (inode->i_blocks)
+			myext2_truncate(inode);
+	}
+}
+
+static int myext2_statfs(struct dentry *dentry, struct kstatfs *buf)
+{
+	struct super_block *sb = dentry->d_sb;
+	struct myext2_sb_info *sbi = MYEXT2_SB(sb);
+	struct ext2_super_block *es = sbi->s_es;
+	u64 id = huge_encode_dev(sb->s_bdev->bd_dev);
+	
+	buf->f_type = MYEXT2_SUPER_MAGIC;
+	buf->f_bsize = sb->s_blocksize;
+	buf->f_blocks = le32_to_cpu(es->s_blocks_count);
+	buf->f_bfree = le32_to_cpu(es->s_free_blocks_count);
+	buf->f_bavail = buf->f_bfree;
+	buf->f_files = le32_to_cpu(es->s_inodes_count);
+	buf->f_ffree = le32_to_cpu(es->s_free_inodes_count);
+	buf->f_namelen = MYEXT2_NAME_LEN;
+	buf->f_fsid = u64_to_fsid(id);
+	
+	return 0;
+}
+
+static int myext2_remount_fs(struct super_block *sb, int *flags, char *data)
+{
+	struct myext2_sb_info *sbi = MYEXT2_SB(sb);
+	struct ext2_super_block *es = sbi->s_es;
+	
+	sync_filesystem(sb);
+	sbi->s_mount_opt = 0;
+	
+	if (!(*flags & SB_RDONLY)) {
+		if (le16_to_cpu(es->s_state) & EXT2_VALID_FS)
+			es->s_state = cpu_to_le16(sbi->s_mount_state);
+		mark_buffer_dirty(sbi->s_sbh);
+	}
+	
+	return 0;
+}
+
+static int __init init_myext2_fs(void)
+{
+	int err = init_inodecache();
+	if (err)
+		return err;
+	
+	err = register_filesystem(&myext2_fs_type);
+	if (err)
+		goto out;
+	
+	return 0;
+out:
+	destroy_inodecache();
+	return err;
+}
+
+static void __exit cleanup_myext2_fs(void)
+{
+	unregister_filesystem(&myext2_fs_type);
+	destroy_inodecache();
+}
+
+module_init(init_myext2_fs)
+module_exit(cleanup_myext2_fs)

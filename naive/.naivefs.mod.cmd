@@ -1,0 +1,1 @@
+savedcmd_/home/dennis/filesystem_lab/naive/naivefs.mod := printf '%s\n'   naivefs_simple.o | awk '!x[$$0]++ { print("/home/dennis/filesystem_lab/naive/"$$0) }' > /home/dennis/filesystem_lab/naive/naivefs.mod

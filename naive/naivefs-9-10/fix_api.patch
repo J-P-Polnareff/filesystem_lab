@@ -1,0 +1,29 @@
+--- naivefs.c.orig	2024-01-08 16:00:00.000000000 +0800
++++ naivefs.c	2024-01-08 16:01:00.000000000 +0800
+@@ -1,3 +1,4 @@
++#include <linux/version.h>
+ #include <linux/module.h>
+ #include <linux/fs.h>
+ #include <linux/buffer_head.h>
+@@ -5,6 +6,7 @@
+ #include <linux/init.h>
+ #include <linux/namei.h>
+ #include <linux/uaccess.h>
++#include <linux/iversion.h>
+ 
+ #define NAIVE_MAGIC 0x990717
+ #define NAIVE_BLOCK_SIZE 512
+@@ -133,10 +135,14 @@
+     __le32 file_size = le32_to_cpu(disk_inode->i_size);
+     __le32 block_index, block_offset;
+     loff_t pos = *ppos;
+     ssize_t bytes_read = 0;
+-    int ret;
+     
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 12, 0)
++    printk(KERN_INFO "naivefs: read inode %lu, size %u, pos %lld, len %zu\n",
++           inode->i_ino, file_size, pos, len);
++#else
+     printk(KERN_INFO "naivefs: read inode %lu, size %u, pos %lld, len %zu\n",
+            inode->i_ino, file_size, (long long)pos, len);
++#endif

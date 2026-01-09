@@ -1,0 +1,1 @@
+savedcmd_/home/dennis/filesystem_lab/myext2/fs/myext2/myext2.o := ld -m elf_x86_64 -z noexecstack   -r -o /home/dennis/filesystem_lab/myext2/fs/myext2/myext2.o @/home/dennis/filesystem_lab/myext2/fs/myext2/myext2.mod 

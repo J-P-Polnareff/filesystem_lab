@@ -1,0 +1,82 @@
+make -C /lib/modules/6.8.0-90-generic/build M=/home/dennis/filesystem_lab/naive modules
+make[1]: Entering directory '/usr/src/linux-headers-6.8.0-90-generic'
+warning: the compiler differs from the one used to build the kernel
+  The kernel was built by: x86_64-linux-gnu-gcc-12 (Ubuntu 12.3.0-1ubuntu1~22.04.2) 12.3.0
+  You are using:           gcc-12 (Ubuntu 12.3.0-1ubuntu1~22.04.2) 12.3.0
+  CC [M]  /home/dennis/filesystem_lab/naive/naivefs_main.o
+  CC [M]  /home/dennis/filesystem_lab/naive/naivefs_super.o
+/home/dennis/filesystem_lab/naive/naivefs_super.c: In function ‘naive_fill_super’:
+/home/dennis/filesystem_lab/naive/naivefs_super.c:122:17: error: ‘naive_sops’ undeclared (first use in this function)
+  122 |     sb->s_op = &naive_sops;
+      |                 ^~~~~~~~~~
+/home/dennis/filesystem_lab/naive/naivefs_super.c:122:17: note: each undeclared identifier is reported only once for each function it appears in
+/home/dennis/filesystem_lab/naive/naivefs_super.c:162:25: error: ‘naive_dir_iops’ undeclared (first use in this function); did you mean ‘naive_dir_record’?
+  162 |     root_inode->i_op = &naive_dir_iops;
+      |                         ^~~~~~~~~~~~~~
+      |                         naive_dir_record
+/home/dennis/filesystem_lab/naive/naivefs_super.c: At top level:
+/home/dennis/filesystem_lab/naive/naivefs_super.c:216:22: error: static declaration of ‘naive_alloc_inode’ follows non-static declaration
+  216 | static struct inode *naive_alloc_inode(struct super_block *sb)
+      |                      ^~~~~~~~~~~~~~~~~
+In file included from /home/dennis/filesystem_lab/naive/naivefs_super.c:1:
+/home/dennis/filesystem_lab/naive/naivefs.h:76:15: note: previous declaration of ‘naive_alloc_inode’ with type ‘struct inode *(struct super_block *)’
+   76 | struct inode *naive_alloc_inode(struct super_block *sb);
+      |               ^~~~~~~~~~~~~~~~~
+/home/dennis/filesystem_lab/naive/naivefs_super.c:229:13: error: static declaration of ‘naive_destroy_inode’ follows non-static declaration
+  229 | static void naive_destroy_inode(struct inode *inode)
+      |             ^~~~~~~~~~~~~~~~~~~
+/home/dennis/filesystem_lab/naive/naivefs.h:77:6: note: previous declaration of ‘naive_destroy_inode’ with type ‘void(struct inode *)’
+   77 | void naive_destroy_inode(struct inode *inode);
+      |      ^~~~~~~~~~~~~~~~~~~
+In file included from ./include/linux/byteorder/little_endian.h:5,
+                 from ./arch/x86/include/uapi/asm/byteorder.h:5,
+                 from ./arch/x86/include/asm/orc_types.h:49,
+                 from ./arch/x86/include/asm/unwind_hints.h:6,
+                 from ./arch/x86/include/asm/nospec-branch.h:13,
+                 from ./arch/x86/include/asm/irqflags.h:9,
+                 from ./include/linux/irqflags.h:18,
+                 from ./include/linux/spinlock.h:59,
+                 from ./include/linux/wait.h:9,
+                 from ./include/linux/wait_bit.h:8,
+                 from ./include/linux/fs.h:6,
+                 from /home/dennis/filesystem_lab/naive/naivefs.h:4:
+/home/dennis/filesystem_lab/naive/naivefs_super.c: In function ‘naive_write_inode’:
+/home/dennis/filesystem_lab/naive/naivefs_super.c:271:46: error: ‘struct inode’ has no member named ‘i_atime’; did you mean ‘__i_atime’?
+  271 |     disk_inode->i_atime = cpu_to_le32(inode->i_atime.tv_sec);
+      |                                              ^~~~~~~
+./include/uapi/linux/byteorder/little_endian.h:34:51: note: in definition of macro ‘__cpu_to_le32’
+   34 | #define __cpu_to_le32(x) ((__force __le32)(__u32)(x))
+      |                                                   ^
+/home/dennis/filesystem_lab/naive/naivefs_super.c:271:27: note: in expansion of macro ‘cpu_to_le32’
+  271 |     disk_inode->i_atime = cpu_to_le32(inode->i_atime.tv_sec);
+      |                           ^~~~~~~~~~~
+/home/dennis/filesystem_lab/naive/naivefs_super.c:272:46: error: ‘struct inode’ has no member named ‘i_mtime’; did you mean ‘__i_mtime’?
+  272 |     disk_inode->i_mtime = cpu_to_le32(inode->i_mtime.tv_sec);
+      |                                              ^~~~~~~
+./include/uapi/linux/byteorder/little_endian.h:34:51: note: in definition of macro ‘__cpu_to_le32’
+   34 | #define __cpu_to_le32(x) ((__force __le32)(__u32)(x))
+      |                                                   ^
+/home/dennis/filesystem_lab/naive/naivefs_super.c:272:27: note: in expansion of macro ‘cpu_to_le32’
+  272 |     disk_inode->i_mtime = cpu_to_le32(inode->i_mtime.tv_sec);
+      |                           ^~~~~~~~~~~
+/home/dennis/filesystem_lab/naive/naivefs_super.c:273:46: error: ‘struct inode’ has no member named ‘i_ctime’; did you mean ‘__i_ctime’?
+  273 |     disk_inode->i_ctime = cpu_to_le32(inode->i_ctime.tv_sec);
+      |                                              ^~~~~~~
+./include/uapi/linux/byteorder/little_endian.h:34:51: note: in definition of macro ‘__cpu_to_le32’
+   34 | #define __cpu_to_le32(x) ((__force __le32)(__u32)(x))
+      |                                                   ^
+/home/dennis/filesystem_lab/naive/naivefs_super.c:273:27: note: in expansion of macro ‘cpu_to_le32’
+  273 |     disk_inode->i_ctime = cpu_to_le32(inode->i_ctime.tv_sec);
+      |                           ^~~~~~~~~~~
+/home/dennis/filesystem_lab/naive/naivefs_super.c: At top level:
+/home/dennis/filesystem_lab/naive/naivefs_super.c:229:13: warning: ‘naive_destroy_inode’ defined but not used [-Wunused-function]
+  229 | static void naive_destroy_inode(struct inode *inode)
+      |             ^~~~~~~~~~~~~~~~~~~
+/home/dennis/filesystem_lab/naive/naivefs_super.c:216:22: warning: ‘naive_alloc_inode’ defined but not used [-Wunused-function]
+  216 | static struct inode *naive_alloc_inode(struct super_block *sb)
+      |                      ^~~~~~~~~~~~~~~~~
+make[3]: *** [scripts/Makefile.build:243: /home/dennis/filesystem_lab/naive/naivefs_super.o] Error 1
+make[2]: *** [/usr/src/linux-headers-6.8.0-90-generic/Makefile:1927: /home/dennis/filesystem_lab/naive] Error 2
+make[1]: *** [Makefile:240: __sub-make] Error 2
+make[1]: Leaving directory '/usr/src/linux-headers-6.8.0-90-generic'
+make: *** [Makefile:8: all] Error 2

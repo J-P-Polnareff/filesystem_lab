@@ -1,0 +1,1 @@
+savedcmd_/home/dennis/filesystem_lab/myext2/fs/myext2/myext2.mod := printf '%s\n'   super.o | awk '!x[$$0]++ { print("/home/dennis/filesystem_lab/myext2/fs/myext2/"$$0) }' > /home/dennis/filesystem_lab/myext2/fs/myext2/myext2.mod

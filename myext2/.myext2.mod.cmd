@@ -1,0 +1,1 @@
+savedcmd_/home/dennis/filesystem_lab/myext2/myext2.mod := printf '%s\n'   myext2_minimal.o | awk '!x[$$0]++ { print("/home/dennis/filesystem_lab/myext2/"$$0) }' > /home/dennis/filesystem_lab/myext2/myext2.mod

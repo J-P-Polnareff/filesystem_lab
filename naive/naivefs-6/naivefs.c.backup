@@ -1,0 +1,262 @@
+/*
+ * naivefs.c - Naive文件系统第6步：创建空文件
+ * 简化版本，专注于创建功能
+ */
+
+#include <linux/module.h>
+#include <linux/fs.h>
+#include <linux/buffer_head.h>
+#include <linux/slab.h>
+#include <linux/init.h>
+#include <linux/namei.h>
+#include <linux/statfs.h>
+#include <linux/mount.h>
+#include <linux/parser.h>
+#include <linux/uaccess.h>
+#include <linux/timekeeping.h>
+
+#define NAIVE_MAGIC 0x990717
+#define NAIVE_BLOCK_SIZE 512
+#define NAIVE_ROOT_INO 1
+#define NAIVE_SUPERBLOCK_BLOCK 1
+
+/* 超级块结构 */
+struct naive_super_block {
+    __le32 magic;
+    __le32 inode_total;
+    __le32 block_total;
+    __le32 inode_table_block_no;
+    __le32 data_block_no;
+    __le32 padding[123];
+};
+
+/* 内存超级块信息 */
+struct naive_sb_info {
+    struct buffer_head *sb_bh;
+};
+
+/* 内存inode信息 */
+struct naive_inode_info {
+    struct inode vfs_inode;
+};
+
+#define NAIVE_SB(sb) ((struct naive_sb_info *)(sb->s_fs_info))
+#define NAIVE_I(inode) ((struct naive_inode_info *)container_of(inode, struct naive_inode_info, vfs_inode))
+
+/* ==================== 文件系统注册 ==================== */
+
+static struct file_system_type naive_fs_type = {
+    .owner = THIS_MODULE,
+    .name = "naive",
+    .mount = naive_mount,
+    .kill_sb = kill_block_super,
+    .fs_flags = FS_REQUIRES_DEV,
+};
+
+static int __init init_naivefs(void)
+{
+    int ret = register_filesystem(&naive_fs_type);
+    if (ret)
+        printk(KERN_ERR "naivefs: register failed, error %d\n", ret);
+    else
+        printk(KERN_INFO "naivefs: register success\n");
+    return ret;
+}
+
+static void __exit exit_naivefs(void)
+{
+    unregister_filesystem(&naive_fs_type);
+    printk(KERN_INFO "naivefs: unregistered\n");
+}
+
+/* ==================== 超级块操作 ==================== */
+
+static int naive_write_inode(struct inode *inode, struct writeback_control *wbc)
+{
+    printk(KERN_INFO "naivefs: write_inode called for inode %lu\n", inode->i_ino);
+    /* 第6步简化：只打印信息，不实际写入 */
+    return 0;
+}
+
+static const struct super_operations naive_sops = {
+    .statfs = simple_statfs,
+    .drop_inode = generic_drop_inode,
+    .write_inode = naive_write_inode,
+};
+
+/* ==================== Inode操作 ==================== */
+
+static int naive_create(struct mnt_idmap *idmap, 
+                       struct inode *dir, 
+                       struct dentry *dentry,
+                       umode_t mode, bool excl)
+{
+    struct inode *inode;
+    
+    printk(KERN_INFO "naivefs: create called for %s, mode %o\n", 
+           dentry->d_name.name, mode);
+    
+    /* 创建新的inode */
+    inode = new_inode(dir->i_sb);
+    if (!inode)
+        return -ENOMEM;
+    
+    /* 分配一个inode编号（简化：从2开始递增） */
+    static int next_ino = 2;
+    inode->i_ino = next_ino++;
+    
+    /* 设置inode基本信息 */
+    inode->i_mode = mode;
+    inode_init_owner(&nop_mnt_idmap, inode, dir, mode);
+    
+    /* 设置时间戳 */
+    struct timespec64 ts;
+    ktime_get_real_ts64(&ts);
+    inode_set_atime_to_ts(inode, ts);
+    inode_set_mtime_to_ts(inode, ts);
+    inode_set_ctime_to_ts(inode, ts);
+    
+    /* 设置链接数 */
+    set_nlink(inode, 1);
+    
+    /* 根据文件类型设置操作集 */
+    if (S_ISDIR(mode)) {
+        inode->i_op = &simple_dir_inode_operations;
+        inode->i_fop = &simple_dir_operations;
+        set_nlink(inode, 2);  /* 目录有 . 和 .. */
+    } else {
+        inode->i_op = &simple_dir_inode_operations;
+        inode->i_fop = &simple_dir_operations;
+    }
+    
+    inode->i_size = 0;
+    
+    /* 插入到VFS */
+    d_add(dentry, inode);
+    
+    printk(KERN_INFO "naivefs: created inode %lu for %s\n", 
+           inode->i_ino, dentry->d_name.name);
+    
+    return 0;
+}
+
+static struct dentry *naive_lookup(struct inode *dir, struct dentry *dentry,
+                                   unsigned int flags)
+{
+    printk(KERN_DEBUG "naivefs: lookup %s\n", dentry->d_name.name);
+    /* 简化实现：总是返回不存在 */
+    return NULL;
+}
+
+static const struct inode_operations naive_dir_inode_operations = {
+    .create = naive_create,
+    .lookup = naive_lookup,
+};
+
+/* ==================== 挂载相关 ==================== */
+
+static int naive_fill_super(struct super_block *sb, void *data, int silent)
+{
+    struct naive_sb_info *sbi;
+    struct buffer_head *bh;
+    struct naive_super_block *nsb;
+    struct inode *root_inode = NULL;
+    int ret = -EINVAL;
+    
+    printk(KERN_INFO "naivefs: filling super block\n");
+    
+    /* 分配超级块信息结构 */
+    sbi = kzalloc(sizeof(struct naive_sb_info), GFP_KERNEL);
+    if (!sbi)
+        return -ENOMEM;
+    
+    sb->s_fs_info = sbi;
+    
+    /* 读取超级块 */
+    bh = sb_bread(sb, NAIVE_SUPERBLOCK_BLOCK);
+    if (!bh) {
+        printk(KERN_ERR "naivefs: cannot read superblock\n");
+        ret = -EIO;
+        goto failed;
+    }
+    
+    nsb = (struct naive_super_block *)bh->b_data;
+    sbi->sb_bh = bh;
+    
+    /* 验证魔数 */
+    if (le32_to_cpu(nsb->magic) != NAIVE_MAGIC) {
+        if (!silent)
+            printk(KERN_ERR "naivefs: wrong magic number (0x%x != 0x%x)\n",
+                   le32_to_cpu(nsb->magic), NAIVE_MAGIC);
+        ret = -EINVAL;
+        goto failed;
+    }
+    
+    printk(KERN_INFO "naivefs: magic number OK\n");
+    
+    /* 设置超级块属性 */
+    sb->s_magic = NAIVE_MAGIC;
+    sb->s_blocksize = NAIVE_BLOCK_SIZE;
+    sb->s_blocksize_bits = 9;  /* 2^9 = 512 */
+    sb->s_op = &naive_sops;
+    
+    /* 创建根inode */
+    root_inode = new_inode(sb);
+    if (!root_inode) {
+        ret = -ENOMEM;
+        goto failed;
+    }
+    
+    root_inode->i_ino = NAIVE_ROOT_INO;
+    root_inode->i_mode = S_IFDIR | 0755;
+    root_inode->i_sb = sb;
+    root_inode->i_op = &naive_dir_inode_operations;
+    root_inode->i_fop = &simple_dir_operations;
+    
+    /* 设置时间戳 */
+    struct timespec64 ts;
+    ktime_get_real_ts64(&ts);
+    inode_set_atime_to_ts(root_inode, ts);
+    inode_set_mtime_to_ts(root_inode, ts);
+    inode_set_ctime_to_ts(root_inode, ts);
+    
+    set_nlink(root_inode, 2);  /* . 和 .. */
+    
+    /* 创建根dentry */
+    sb->s_root = d_make_root(root_inode);
+    if (!sb->s_root) {
+        printk(KERN_ERR "naivefs: failed to create root dentry\n");
+        iput(root_inode);
+        ret = -ENOMEM;
+        goto failed;
+    }
+    
+    printk(KERN_INFO "naivefs: fill_super success\n");
+    return 0;
+    
+failed:
+    if (sbi) {
+        if (sbi->sb_bh)
+            brelse(sbi->sb_bh);
+        kfree(sbi);
+        sb->s_fs_info = NULL;
+    }
+    return ret;
+}
+
+static struct dentry *naive_mount(struct file_system_type *fs_type,
+                                 int flags, const char *dev_name,
+                                 void *data)
+{
+    printk(KERN_INFO "naivefs: mount called for %s\n", dev_name);
+    return mount_bdev(fs_type, flags, dev_name, data, naive_fill_super);
+}
+
+/* ==================== 模块信息 ==================== */
+
+module_init(init_naivefs);
+module_exit(exit_naivefs);
+
+MODULE_LICENSE("GPL");
+MODULE_AUTHOR("Chen Sihan");
+MODULE_DESCRIPTION("Naive File System - Step 6: Create empty files");
